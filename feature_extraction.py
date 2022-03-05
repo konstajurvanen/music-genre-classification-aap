@@ -37,7 +37,9 @@ def extract_and_serialize_features(n_mels=40):
                 hop_length=hop_length,
                 window=window)
             
-            features = extract_mel_band_energies(spec, sr, n_fft, n_mels)
+            # minimum length of found file was 645 samples
+            # therefore we will cut all clips to that length
+            features = extract_mel_band_energies(spec, sr, n_fft, n_mels)[:,:645]
             genre = get_genre_from(subdir)
             print(f"Shape of the features {features.shape} of genre {genre}")
             genre_one_hot = create_one_hot_encoding(genre, genres)
@@ -88,4 +90,7 @@ if __name__ == '__main__':
     download = False
     if download:
         GTZAN(root=".", download=download)
-    extract_and_serialize_features()
+    # allowing testing results with different n_mels easily
+    extract_and_serialize_features(40)
+    extract_and_serialize_features(60)
+    extract_and_serialize_features(80)
