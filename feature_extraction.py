@@ -9,6 +9,8 @@ from librosa.filters import mel
 from torchaudio.datasets import GTZAN
 import numpy as np
 
+from copy import deepcopy
+
 __all__ = ['extract_and_serialize_features']
 
 
@@ -16,8 +18,6 @@ def extract_and_serialize_features(n_mels=40):
     parent_folder = './genres/'
     sub_folders = list(Path(parent_folder).iterdir())
     n_fft = 2048
-    hop_length = 1024
-    window = 'hamming'
     
     audio_folders = list(filter(lambda name: '.mf' not in str(name), sub_folders))
     
@@ -31,24 +31,29 @@ def extract_and_serialize_features(n_mels=40):
         
         for i, file in enumerate(files):
             data, sr = lb_load(path=file, sr=None, mono=True)
-            spec = stft(
-                y=data,
-                n_fft=n_fft,
-                hop_length=hop_length,
-                window=window)
-            
-            # minimum length of found file was 645 samples
+            # Minimum length of found file was 645 samples,
             # therefore we will cut all clips to that length
-            features = extract_mel_band_energies(spec, sr, n_fft, n_mels)[:,:645]
+            features = extract_mel_band_energies(data, sr, n_fft, n_mels)[:,:645]
             genre = get_genre_from(subdir)
             print(f"Shape of the features {features.shape} of genre {genre}")
             genre_one_hot = create_one_hot_encoding(genre, genres)
             features_and_classes = {'features': features, 
                                     'class': genre_one_hot}
-            data_purpose = '/training/' if i < 70 else '/testing/'
+            data_purpose = '/training/' if i < 80 else '/testing/'
             out_dir = Path('mel_features_n_' + str(n_mels) + data_purpose)
             f_name = genre + '_' + str(i)
             serialize(f_name, features_and_classes, out_dir)
+
+            if 'training' in data_purpose:
+                data_noised = add_noise(data)
+                features_noised = extract_mel_band_energies(data_noised, sr, n_fft, n_mels)[:,:645]
+                features_noised = spec_augment(features_noised, n_mels)
+                features_and_classes_noised = {
+                    'features': features_noised, 
+                    'class': genre_one_hot
+                }
+                f_name_noised = genre + '_noised_' + str(i)
+                serialize(f_name_noised, features_and_classes_noised, out_dir)
                 
     print(f"Serialised features with {n_mels} Mel-bands")
             
@@ -74,11 +79,17 @@ def serialize(
         dump(features_and_classes, f)
         
         
-def extract_mel_band_energies(spec: np.ndarray,
+def extract_mel_band_energies(data: np.ndarray,
                               sr: Optional[int] = 44100,
                               n_fft: Optional[int] = 1024,
-                              n_mels: Optional[int] = 40) \
+                              n_mels: Optional[int] = 40,
+                              hop_length: Optional[int] = 1024,
+                              window: Optional[str] = 'hamming') \
         -> np.ndarray:
+    spec = stft(y=data,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                window=window)
     mel_filters = mel(sr=sr, 
                       n_fft=n_fft, 
                       n_mels=n_mels)
@@ -86,11 +97,27 @@ def extract_mel_band_energies(spec: np.ndarray,
     return MBEs
 
 
+def add_noise(audio_signal: np.ndarray) -> np.ndarray:
+    samples = audio_signal.shape[0]
+    # Stdev. of noise is 1/10th of max in signal
+    noise = np.random.normal(0, audio_signal.max()/10, size=samples)
+    return audio_signal + noise
+
+
+def spec_augment(mel_spectrogram: np.ndarray):
+    spectrogram = deepcopy(mel_spectrogram)
+    # Making possible mask size max 10 bands
+    f = np.random.randint(low=0, high=10)
+    f0 = np.random.randint(low=0, high=40-f)
+    min, max = f0, f+f0
+    for i in range(min, max):
+        spectrogram[i,:] = 0
+    return spectrogram
+
+
+
 if __name__ == '__main__':
     download = False
     if download:
         GTZAN(root=".", download=download)
-    # allowing testing results with different n_mels easily
-    extract_and_serialize_features(40)
-    extract_and_serialize_features(60)
     extract_and_serialize_features(80)

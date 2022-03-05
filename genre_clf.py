@@ -26,13 +26,11 @@ class GenreClf(Module):
                  pooling_kernel_3: Union[Tuple[int, int], int],
                  pooling_stride_3: Union[Tuple[int, int], int],
                  fc_out_1: int,
-                 fc_out_2: int,
                  clf_output_classes: int,
                  dropout_conv_1: float,
                  dropout_conv_2: float,
                  dropout_conv_3: float,
                  dropout_fc_1: float,
-                 dropout_fc_2: float
                  ) -> None:
 
         super().__init__()
@@ -80,11 +78,7 @@ class GenreClf(Module):
                               ReLU(),
                               Dropout(dropout_fc_1))
 
-        self.fc2 = Sequential(Linear(in_features=fc_out_1, out_features=fc_out_2),
-                              ReLU(),
-                              Dropout(dropout_fc_2))
-
-        self.clf = Sequential(Linear(in_features=fc_out_2, out_features=clf_output_classes),
+        self.clf = Sequential(Linear(in_features=fc_out_1, out_features=clf_output_classes),
                               Softmax(dim=1))
 
     def forward(self,
@@ -95,7 +89,6 @@ class GenreClf(Module):
         h = self.conv3(h)
         h = h.view(h.size()[0], -1)
         h = self.fc1(h)
-        h = self.fc2(h)
         return self.clf(h)
 
 
