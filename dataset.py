@@ -16,8 +16,8 @@ __all__ = ['GenreDataset']
 class GenreDataset(Dataset):
 
     def __init__(self,
-                 data_dir: Union[str, Path] = 'training' ,
-                 n_mels: Optional[str] = 40,
+                 data_dir: Union[str, Path] = 'training',
+                 n_mels: Optional[int] = 40,
                  load_into_memory: Optional[bool] = True) \
             -> None:
         """

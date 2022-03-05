@@ -6,11 +6,13 @@ from pathlib import Path
 from pickle import dump
 from librosa.core import load as lb_load, stft
 from librosa.filters import mel
+from torchaudio.datasets import GTZAN
 import numpy as np
 
 __all__ = ['extract_and_serialize_features']
 
-def extract_and_serialize_features(n_mels):
+
+def extract_and_serialize_features(n_mels=40):
     parent_folder = './genres/'
     sub_folders = list(Path(parent_folder).iterdir())
     n_fft = 2048
@@ -22,7 +24,7 @@ def extract_and_serialize_features(n_mels):
     def get_genre_from(path):
         return str(path).split("\\")[1]
     
-    genres = [ get_genre_from(dirname) for dirname in audio_folders ]
+    genres = [get_genre_from(dirname) for dirname in audio_folders]
     
     for subdir in audio_folders:
         files = list(Path(subdir).iterdir())
@@ -37,6 +39,7 @@ def extract_and_serialize_features(n_mels):
             
             features = extract_mel_band_energies(spec, sr, n_fft, n_mels)
             genre = get_genre_from(subdir)
+            print(f"Shape of the features {features.shape} of genre {genre}")
             genre_one_hot = create_one_hot_encoding(genre, genres)
             features_and_classes = {'features': features, 
                                     'class': genre_one_hot}
@@ -82,4 +85,7 @@ def extract_mel_band_energies(spec: np.ndarray,
 
 
 if __name__ == '__main__':
+    download = False
+    if download:
+        GTZAN(root=".", download=download)
     extract_and_serialize_features()
